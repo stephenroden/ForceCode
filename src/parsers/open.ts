@@ -136,6 +136,25 @@ function isFoldered(toolingType: string): boolean {
     return metadata ? metadata.inFolder : false;
 }
 
+export function getAnyNamesFromUri(uri: vscode.Uri): Promise<PXMLMember[]> {
+	return new Promise((resolve) => {
+		const projRoot: string = vscode.window.forceCode.projectRoot + path.sep;
+		const uriNameParts: string[] = uri.fsPath.split(projRoot);
+		let ret: PXMLMember[] = [];
+		if (uriNameParts.length > 1) {
+			getAnyNameFromUri(uri).then(member => {
+				resolve([member]);
+			});
+		}
+		else {
+			vscode.window.forceCode.describe.metadataObjects.forEach((metadataObject: IMetadataObject) => {
+				ret.push({ name: metadataObject.xmlName, members: ['*'] });
+			})
+			resolve(ret);
+		}
+	});
+}
+
 export function getAnyNameFromUri(uri: vscode.Uri): Promise<PXMLMember> {
     return new Promise((resolve) => {
         const projRoot: string = vscode.window.forceCode.projectRoot + path.sep;

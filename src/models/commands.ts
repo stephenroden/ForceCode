@@ -6,7 +6,7 @@ import { commandService, commandViewService, codeCovViewService, fcConnection, d
 import * as path from 'path';
 import { FCFile } from '../services/codeCovView';
 import { ToolingType } from '../commands/retrieve';
-import { getAnyNameFromUri } from '../parsers/open';
+import { getAnyNamesFromUri } from '../parsers/open';
 import { FCCommand } from '../services/commandView';
 import { Config } from '../forceCode';
 import { readConfigFile, removeConfigFolder } from '../services/configuration';
@@ -356,29 +356,30 @@ export const fcCommands: FCCommand[] = [
 			if (selectedResource && selectedResource instanceof Array) {
 				return new Promise((resolve, reject) => {
 					var files: PXMLMember[] = [];
-					var proms: Promise<PXMLMember>[] = selectedResource.map(curRes => {
-						if(curRes.fsPath.startsWith(vscode.window.forceCode.projectRoot + path.sep)) {
-							return getAnyNameFromUri(curRes);
-						} else if (curRes.fsPath === vscode.window.forceCode.projectRoot) {
-							var fcPath: string = path.join(vscode.window.forceCode.workspaceRoot, 'force.json');
-							var forcejson: vscode.Uri = vscode.Uri.parse(fcPath);
-							return commands.retrieve(forcejson);
+					var proms: Promise<PXMLMember[]>[] = [];
+					selectedResource.forEach(curRes => {
+						var projectSrcRoot: string = vscode.window.forceCode.projectRoot
+						var resourcePath: string = curRes.fsPath;
+						if (projectSrcRoot == resourcePath || resourcePath.startsWith(projectSrcRoot + path.sep)) {
+							proms = proms.concat(getAnyNamesFromUri(curRes));
 						} else {
 							reject({ message: 'Only files/folders within the current org\'s src folder (' + vscode.window.forceCode.projectRoot + ') can be retrieved/refreshed.' })
 						}
 					});
-					Promise.all(proms).then(theNames => {
-						theNames.forEach(curName => {
-							var index: number = getTTIndex(curName.name, files);
-							if (index >= 0) {
-								if (curName.members === ['*']) {
-									files[index].members = ['*'];
+					Promise.all(proms).then(member => {
+						member.forEach(theNames => {
+							theNames.forEach(curName => {
+								var index: number = getTTIndex(curName.name, files);
+								if (index >= 0) {
+									if (curName.members === ['*']) {
+										files[index].members = ['*'];
+									} else {
+										files[index].members.push(...curName.members);
+									}
 								} else {
-									files[index].members.push(...curName.members);
+									files.push(curName);
 								}
-							} else {
-								files.push(curName);
-							}
+							});
 						});
 						resolve(commands.retrieve({ types: files }));
 					});
